@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Rate Limiter Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+</head>
+<body>
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">RL</div>
+                <div>
+                    <h1>API Rate Limiter</h1>
+                    <p class="subtitle">Monitor your API usage in real-time</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <span id="connectionStatus" class="connection-dot disconnected" title="Connecting..."></span>
+                <button id="themeToggle" class="btn-icon" title="Toggle Theme (T)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+                <button id="exportBtn" class="btn-icon" title="Export Data" onclick="exportData()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button id="importBtn" class="btn-icon" title="Import Data" onclick="document.getElementById('importFile').click()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </button>
+                <input type="file" id="importFile" accept=".json" hidden onchange="importData(event)">
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue">K</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="totalKeys">0</span>
+                    <span class="stat-label">API Keys</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">R</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="totalRequests">0</span>
+                    <span class="stat-label">Total Requests</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon yellow">!</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="warningCount">0</span>
+                    <span class="stat-label">Warnings</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red">X</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="blockedCount">0</span>
+                    <span class="stat-label">Blocked</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">T</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="requestsToday">0</span>
+                    <span class="stat-label">Today</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon teal">~</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="avgResponseTime">0ms</span>
+                    <span class="stat-label">Avg Response</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon orange">C</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="cooldownCount">0</span>
+                    <span class="stat-label">Cooldowns</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon pink">A</div>
+                <div class="stat-info">
+                    <span class="stat-value" id="activeKeys">0</span>
+                    <span class="stat-label">Active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Add Presets -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Quick Add — Popular APIs</h2>
+                <div class="preset-filters">
+                    <button class="preset-filter-btn active" data-category="all">All</button>
+                    <button class="preset-filter-btn" data-category="AI">AI</button>
+                    <button class="preset-filter-btn" data-category="Dev">Dev</button>
+                    <button class="preset-filter-btn" data-category="Payment">Payment</button>
+                    <button class="preset-filter-btn" data-category="Social">Social</button>
+                    <button class="preset-filter-btn" data-category="Cloud">Cloud</button>
+                    <button class="preset-filter-btn" data-category="Media">Media</button>
+                </div>
+            </div>
+            <div class="presets-grid" id="presetsGrid"></div>
+        </div>
+
+        <!-- Add Custom API Key -->
+        <div class="section">
+            <h2>Add Custom API Key</h2>
+            <div class="form-row">
+                <input type="text" id="apiKeyName" placeholder="Service name (N)">
+                <input type="text" id="apiKeyId" placeholder="API Key or identifier">
+                <select id="rateLimitPreset">
+                    <option value="custom">Custom Limit</option>
+                    <option value="10">10 req/min</option>
+                    <option value="20">20 req/min</option>
+                    <option value="30">30 req/min</option>
+                    <option value="60">60 req/min</option>
+                    <option value="100">100 req/min</option>
+                    <option value="500">500 req/min</option>
+                    <option value="1000">1000 req/min</option>
+                </select>
+                <input type="number" id="rateLimit" placeholder="or custom limit" value="60">
+                <select id="resetWindow">
+                    <option value="60">Per Minute</option>
+                    <option value="3600">Per Hour</option>
+                    <option value="86400">Per Day</option>
+                </select>
+                <select id="keyFolder"></select>
+                <button id="addKeyBtn" class="btn btn-primary">Add Key</button>
+            </div>
+        </div>
+
+        <!-- API Keys Table -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Monitored Keys</h2>
+                <div class="table-controls">
+                    <input type="text" id="logSearch" placeholder="Filter keys... (/)">
+                    <select id="folderFilter">
+                        <option value="">All Folders</option>
+                    </select>
+                    <button id="addFolderBtn" class="btn btn-sm btn-outline" title="Add Folder">+ Folder</button>
+                    <button id="selectAllBtn" class="btn btn-sm btn-outline" title="Select All">Select All</button>
+                </div>
+            </div>
+
+            <!-- Bulk Actions Bar -->
+            <div id="bulkActions" class="bulk-actions" style="display:none">
+                <span><span id="bulkCount">0</span> selected</span>
+                <button id="bulkResetBtn" class="btn btn-sm btn-warning">Reset Selected</button>
+                <button id="bulkDeleteBtn" class="btn btn-sm btn-danger">Delete Selected</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="keysTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllCheck" onclick="toggleSelectAll()"></th>
+                            <th>Service</th>
+                            <th>API Key</th>
+                            <th>Limit</th>
+                            <th>Used</th>
+                            <th>Reset In</th>
+                            <th>Status</th>
+                            <th>Usage</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keysBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+            <div class="section chart-card">
+                <div class="section-header">
+                    <h2>Usage Over Time</h2>
+                    <div class="chart-period-selector">
+                        <button class="period-btn active" data-period="hour" onclick="changeChartPeriod('hour', this)">1H</button>
+                        <button class="period-btn" data-period="day" onclick="changeChartPeriod('day', this)">24H</button>
+                        <button class="period-btn" data-period="week" onclick="changeChartPeriod('week', this)">7D</button>
+                    </div>
+                </div>
+                <canvas id="usageChart"></canvas>
+            </div>
+            <div class="section chart-card">
+                <h2>Requests by Service</h2>
+                <canvas id="serviceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Category Breakdown -->
+        <div class="section">
+            <h2>Usage by Category</h2>
+            <div id="categoryBreakdown" class="category-grid"></div>
+        </div>
+
+        <!-- Request Log -->
+        <div class="section">
+            <h2>Request Log</h2>
+            <div id="requestLog" class="request-log">
+                <p class="empty-state">No requests logged yet.</p>
+            </div>
+            <div class="log-footer">
+                <button id="clearLogsBtn" class="btn btn-sm btn-danger">Clear Logs</button>
+            </div>
+        </div>
+
+        <!-- Alerts Log -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Alert Log</h2>
+                <div class="alert-controls">
+                    <button id="markAllReadBtn" class="btn btn-sm btn-outline">Mark All Read</button>
+                    <button id="clearAlertsBtn" class="btn btn-sm btn-danger">Clear Alerts</button>
+                </div>
+            </div>
+            <div id="alertsLog" class="alerts-log">
+                <p class="empty-state">No alerts yet.</p>
+            </div>
+        </div>
+
+        <!-- Simulate -->
+        <div class="section">
+            <h2>Simulate Requests</h2>
+            <div class="form-row">
+                <select id="simulateKey">
+                    <option value="">Select API Key</option>
+                </select>
+                <input type="number" id="simulateCount" placeholder="Requests" value="10">
+                <input type="number" id="simulateDelay" placeholder="Delay (ms)" value="100">
+                <button id="simulateBtn" class="btn btn-warning">Simulate</button>
+                <button id="simulateBurstBtn" class="btn btn-danger">Burst (No Delay)</button>
+                <button id="resetBtn" class="btn btn-outline">Reset All</button>
+            </div>
+        </div>
+
+        <!-- Cooldown Timer -->
+        <div class="section">
+            <h2>Active Cooldowns</h2>
+            <div id="cooldowns" class="cooldowns-grid">
+                <p class="empty-state">No active cooldowns.</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>Built by <a href="https://github.com/SirYadav1" target="_blank">SirYadav1</a> | Press <kbd>?</kbd> for shortcuts</p>
+        </footer>
+    </div>
+
+    <!-- Edit Key Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-overlay" onclick="closeEditModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit API Key</h3>
+                <button class="btn-close" onclick="closeEditModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Name</label>
+                        <input type="text" id="editKeyName" placeholder="Service name">
+                    </div>
+                    <div class="form-group">
+                        <label>Service</label>
+                        <input type="text" id="editKeyService" placeholder="Service identifier">
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="editKeyCategory">
+                            <option value="Custom">Custom</option>
+                            <option value="AI">AI</option>
+                            <option value="Dev">Dev</option>
+                            <option value="Payment">Payment</option>
+                            <option value="Social">Social</option>
+                            <option value="Media">Media</option>
+                            <option value="Comm">Comm</option>
+                            <option value="Cloud">Cloud</option>
+                            <option value="DB">DB</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Color</label>
+                        <input type="color" id="editKeyColor" value="#6c5ce7">
+                    </div>
+                    <div class="form-group">
+                        <label>Rate Limit</label>
+                        <input type="number" id="editKeyLimit" placeholder="60">
+                    </div>
+                    <div class="form-group">
+                        <label>Window (sec)</label>
+                        <select id="editKeyWindow">
+                            <option value="60">Per Minute</option>
+                            <option value="3600">Per Hour</option>
+                            <option value="86400">Per Day</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Folder</label>
+                        <select id="editKeyFolder"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Warning Threshold (%)</label>
+                        <input type="number" id="editKeyThreshold" min="1" max="100" value="80">
+                    </div>
+                    <div class="form-group">
+                        <label>Expiry Date</label>
+                        <input type="date" id="editKeyExpiry">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Notes</label>
+                        <textarea id="editKeyNotes" rows="3" placeholder="Add notes about this API key..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEditKey()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
