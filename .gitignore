@@ -1,7 +1,1 @@
-node_modules/
-data/
-.env
-*.db
-*.db-journal
-*.db-wal
-*.db-shm
+node_modules/\n*.db\n.env
