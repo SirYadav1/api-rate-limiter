@@ -88,8 +88,9 @@ function renderPresets() {
 }
 
 function addPresetKey(preset) {
-    const key = prompt(`Enter your ${preset.name} API key:`);
-    if (!key) return;
+    const raw = prompt(`Enter your ${preset.name} API key:`);
+    if (!raw) return;
+    const key = sanitize(raw);
 
     apiKeys.push({
         id: Date.now(),
@@ -112,8 +113,8 @@ function addPresetKey(preset) {
 
 // ========== ADD KEY ==========
 function addKey() {
-    const name = document.getElementById('apiKeyName').value.trim();
-    const key = document.getElementById('apiKeyId').value.trim();
+    const name = sanitize(document.getElementById('apiKeyName').value.trim());
+    const key = sanitize(document.getElementById('apiKeyId').value.trim());
     const presetLimit = document.getElementById('rateLimitPreset').value;
     const customLimit = parseInt(document.getElementById('rateLimit').value) || 60;
     const window = parseInt(document.getElementById('resetWindow').value) || 60;
@@ -476,6 +477,12 @@ function importData(e) {
 }
 
 // ========== HELPERS ==========
+function sanitize(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
 function formatWindow(s) {
     if (s < 3600) return `${s / 60} min`;
     if (s < 86400) return `${s / 3600} hour`;
@@ -515,6 +522,7 @@ function setupListeners() {
     document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
     document.getElementById('importFile').addEventListener('change', importData);
     document.getElementById('clearLogsBtn').addEventListener('click', () => { requestLogs = []; save(); renderRequestLog(); });
+    document.getElementById('clearAlertsBtn').addEventListener('click', () => { alerts = []; localStorage.setItem('rl_alerts', '[]'); renderAlerts(); renderStats(); });
     document.getElementById('logSearch').addEventListener('input', renderRequestLog);
 
     document.getElementById('rateLimitPreset').addEventListener('change', function() {
